@@ -1,24 +1,19 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-//using TMPro;
-using Unity.VisualScripting;
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.SceneManagement;
-//using UnityEngine.SocialPlatforms.Impl;
-
 /********************************************************************
  * 最終更新：2023/04/07
  * 機能：ボタンの操作内容を設定
  * 数字の挿入、削除、設定画面
 *********************************************************************/
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+
 public class ButtonAction : MonoBehaviour
 {
-    //[SerializeField] TextMeshProUGUI textHead;
-    //[SerializeField] TextMeshProUGUI textBottom;
-
     NumberDriver numberDriver = new NumberDriver();
     GameManager gameManager = new GameManager();
 
@@ -33,8 +28,6 @@ public class ButtonAction : MonoBehaviour
     　
     private void Start()
     {
-        gameManager.SetCubeAdress();
-
         // テキストを表示
         txtMeshPro = FindObjectOfType<ScreenManagaer>();// 現在未使用
     }
@@ -99,6 +92,11 @@ public class ButtonAction : MonoBehaviour
                 gameManager.ClearCube();
                 break;
             case "setting":
+                // LoadSceneで実行
+                break;
+            case "ans":
+                ScoreManager scoreManager = new ScoreManager();
+                scoreManager.IsAnserArray();
                 break;
             default:
                 break;
