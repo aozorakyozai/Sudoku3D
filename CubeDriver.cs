@@ -1,14 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.EventSystems;
-using TMPro;
-using UnityEngine.UI;
-using Unity.VisualScripting;
-
-
 /********************************************************************
- * 最終更新：2023/04/07
+ * 最終更新：2023/04/17　AjustCubeの機能の持続性を拡大
  * 機能：スマホ画面操作 【 CubeDriver 】
  * 環境：Unity 2023.3.13f1 LTS
  * 環境：Unity C# 
@@ -19,6 +10,14 @@ using Unity.VisualScripting;
  * 注意：複数タップ状態からシングルタップ、スワイプ、フリックに継続しない仕様
 *********************************************************************/
 
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using TMPro;
+using UnityEngine.UI;
+using Unity.VisualScripting;
+
 public class CubeDriver : MonoBehaviour
 {
     /**** Cube構造設定 ****/
@@ -27,8 +26,7 @@ public class CubeDriver : MonoBehaviour
     /// <summary> transformに毎回アクセスすると重くなるから、キャッシュするため</summary>
     private Transform _transform;
     /// <summary> 一辺のCube数</summary>
-    [SerializeField] int cubeLength = 3;
-    
+    private int cubeLength = 3;
     /// <summary> cubeNameと座標の調整数
     float adjusrNum { get { return (cubeLength + 1) / 2f; } }
     /// <summary> デフォルト位置のキューブ間の距離 (1mのCubeの場合：1.1は,1m + 0.1mの隙間がある)</summary>
@@ -39,12 +37,11 @@ public class CubeDriver : MonoBehaviour
     public Color questionColor = GameManager.QuestionColor;
     /// <summary> Childキューブ用 ParentCubeに対して x+2,y+2,z+2</summary>
     string cubeNumber;
-    
     NumberDriver numberDriver = new NumberDriver();
-    GameObject _tradeCubeAdress = GameManager.tradeCubeAdress;
-
     GameManager gameManager = new GameManager();
     ScreenManagaer screenManagaer = new ScreenManagaer();
+    // 選択したキューブ
+    public static GameObject tradeCubeAdress;
     int deviceRotate;
 
     /**** MultiTouch座標設定 ****/
@@ -68,7 +65,6 @@ public class CubeDriver : MonoBehaviour
     float horizontalAngle;
     /// <summary> タッチしている指の数をカウントする</summary>
     int deviceTouchCount;
-
     /// <summary> ピンチが終了しているかの判定: ２本目が離れたときにfalseにする</summary>
     bool isMultiTouch = false;
 
@@ -116,8 +112,6 @@ public class CubeDriver : MonoBehaviour
     /// <summary> コルーチンを外部から止める</summary>
     Coroutine _rotateCoroutine;
 
-    //NumberDriver numberDriver = new NumberDriver();
-
     /// <summary>回転の継続</summary>
     Vector2 touchDeltaPosition;
 
@@ -126,12 +120,9 @@ public class CubeDriver : MonoBehaviour
     /// <summary>スワイプの角度</summary>
     float SwipeAngle;
     /// <summary>スワイプの角度計算用</summary>
-    float tanXY;
-
-    /**** 左下テキスト ****/
-    //[SerializeField] TextMeshProUGUI textHead;
-    //[SerializeField] TextMeshProUGUI textBottom;
-    
+    float tanXY = 75f;
+    bool isX = false;
+    bool isY = false;
 
     void Awake()
     {
@@ -140,9 +131,6 @@ public class CubeDriver : MonoBehaviour
         _transform = gameObject.transform;
         // 回転の補正 (解像度(縦) / １インチあたり画素数) → 　4inc  → 画面スクロールで半周
         screenCorrection = 180 / (Screen.height / Screen.dpi);
-
-        gameManager.SetCubeAdress();
-
     }
 
     void Start()
@@ -154,12 +142,10 @@ public class CubeDriver : MonoBehaviour
     {
         // タッチしている指の数を取得
         deviceTouchCount = Input.touchCount;
-
         // マルチタッチのリセット、タッチの継続を判定・修正
         if (isMultiTouch == true && deviceTouchCount == 0)
         {
             isMultiTouch = false;
-            //textBottom.text = "pinch END";
         }
 
         // 1本タッチ
@@ -185,7 +171,6 @@ public class CubeDriver : MonoBehaviour
             {
                 // スワイプ中の位置の記録
                 secondPressPosition = touch0.position;
-
                 // Tapとスワイプの判別 移動量がswipeMagnitudeより大きい場合
                 if (Mathf.Abs((secondPressPosition - startTapPosition).magnitude) > swipeMagnitude)
                 {
@@ -227,7 +212,6 @@ public class CubeDriver : MonoBehaviour
                 {
                     // ダブルタップ
                     //doubleTapCount++; // このカウントはいらない
-
                     if ((Time.time - lastTapTime) < doubleTapTimeThreshold)
                     {
                         /**** (1,1) ****/
@@ -326,7 +310,6 @@ public class CubeDriver : MonoBehaviour
     }
     void OnFlick()
     {
-        
         // 回転コルーチンの開始
         _rotateCoroutine = StartCoroutine(CubeRotateAsync());
     }
@@ -343,7 +326,6 @@ public class CubeDriver : MonoBehaviour
         {
             StopCoroutine(_rotateCoroutine);
         }
-       
         // 初期値に戻す
         AjustCubeRotateIdentity();
     }
@@ -361,7 +343,7 @@ public class CubeDriver : MonoBehaviour
      * Cubeの向きをAjust
      * Cubeの回転をAjust
      * Cubeの回転を画面の向きに合わせて初期値に戻す
-     ******************************************************************/
+     ********************************************************************/
 
     /// <summary>
     /// タップしたキューブの色を変える
@@ -377,36 +359,36 @@ public class CubeDriver : MonoBehaviour
             // タグ名で判定
             if (hit.collider.gameObject.tag == "GameCube")
             {
-                _tradeCubeAdress = hit.collider.gameObject;
-
-                Color cubeColor = _tradeCubeAdress.GetComponent<Renderer>().material.color;
+                tradeCubeAdress = hit.collider.gameObject;
+                //Debug.Log("hit.collider: " + tradeCubeAdress.name);
+                Color cubeColor = tradeCubeAdress.GetComponent<Renderer>().material.color;
 
                 // 色の変更
                 if (cubeColor == Color.white)
                 {
                     // 選択Cube以外を白に戻す
                     ChangeCubeColor(Color.red, Color.white);
-
                     // 赤にする
                     cubeColor = Color.red;
-
                     // 選択されたキューブ番号
                     NumberDriver.cubeAdress = cubeNumber; // いらないのでは？
-                    GameManager.tradeCubeAdress = _tradeCubeAdress;
+                    //Debug.Log("" + tradeCubeAdress.name);
+                    //gameManager.tradeCubeAdress = tradeCubeAdress;
+                    //Debug.Log("GameManager: " + tradeCubeAdress.name);
                 }
                 else if (cubeColor == Color.red)
                 {
                     cubeColor = Color.white;
                     NumberDriver.cubeAdress = null;
-                    GameManager.tradeCubeAdress = null;
+                    gameManager._tradeCubeAdress = null;
                 }
                 else if (cubeColor == questionColor)
                 {
                     // 出題キューブ以外を白に戻す
                     ChangeCubeColor(Color.red, Color.white);
                     // 選択されたキューブ番号
-                    NumberDriver.cubeAdress = cubeNumber;
-                    GameManager.tradeCubeAdress = _tradeCubeAdress;
+                    NumberDriver.cubeAdress = cubeNumber;  // いらないのでは？
+                    gameManager._tradeCubeAdress = tradeCubeAdress;
                     //Handheld.Vibrate();
                     // 出題の場合は変更しない
                     return;
@@ -415,8 +397,7 @@ public class CubeDriver : MonoBehaviour
                 {
                     cubeColor = Color.white;
                 }
-
-                _tradeCubeAdress.GetComponent<Renderer>().materials[0].color = cubeColor;
+                tradeCubeAdress.GetComponent<Renderer>().materials[0].color = cubeColor;
             }
         }
     }
@@ -428,11 +409,12 @@ public class CubeDriver : MonoBehaviour
     /// <param name="変更後の色"></param>
     private void ChangeCubeColor(Color beforeColor, Color afterColor)
     {
-        for (int i = 0; i < gameManager.cubeGameObjects.Length; i++)
+        for (int i = 0; i < GameManager.cubeGameObjects.Length; i++)
         {
-            if (gameManager.cubeGameObjects[i].transform.GetComponent<Renderer>().materials[0].color == beforeColor)
+            //Debug.Log(GameManager.cubeGameObjects[i].name);
+            if (GameManager.cubeGameObjects[i].transform.GetComponent<Renderer>().materials[0].color == beforeColor)
             {
-                gameManager.cubeGameObjects[i].transform.GetComponent<Renderer>().materials[0].color = afterColor;
+                GameManager.cubeGameObjects[i].transform.GetComponent<Renderer>().materials[0].color = afterColor;
             }
         }
     }
@@ -468,7 +450,6 @@ public class CubeDriver : MonoBehaviour
             {
                 swipeVector *= 0.999f;
             }
-            
             // スロー回転
             _transform.rotation = Quaternion.AngleAxis(swipeVector * Time.deltaTime * screenCorrection, new Vector3(varticalAngle, horizontalAngle, 0f)) * _transform.rotation;
             // １フレーム待機する
@@ -497,11 +478,11 @@ public class CubeDriver : MonoBehaviour
                 {
                     if (_pinchDistance < 0)
                     {
-                        gameManager.cubeGameObjects[l++].transform.localPosition = new Vector3((i - adjusrNum) * pinchLength, (j - adjusrNum) * pinchLength, (k - adjusrNum) * pinchLength);
+                        GameManager.cubeGameObjects[l++].transform.localPosition = new Vector3((i - adjusrNum) * pinchLength, (j - adjusrNum) * pinchLength, (k - adjusrNum) * pinchLength);
                     }
                     else
                     {
-                        gameManager.cubeGameObjects[l++].transform.localPosition = new Vector3((i - adjusrNum) * cubeGap, (j - adjusrNum) * cubeGap, (k - adjusrNum) * cubeGap);
+                        GameManager.cubeGameObjects[l++].transform.localPosition = new Vector3((i - adjusrNum) * cubeGap, (j - adjusrNum) * cubeGap, (k - adjusrNum) * cubeGap);
                     }
                 }
             }
@@ -515,13 +496,10 @@ public class CubeDriver : MonoBehaviour
     {
         Vector3 rotationCube = _transform.rotation.eulerAngles;
         //Debug.Log("test " + (int)rotation.x + " " + (int)rotation.y + " " + (int)rotation.z);
-
         float xAjust = AjustRotate(rotationCube.x);
         float yAjust = AjustRotate(rotationCube.y);
         float zAjust = AjustRotate(rotationCube.z);
-
         _transform.rotation = Quaternion.Euler(xAjust, yAjust, zAjust);
-
         // 向きが整列している状態
         isRotateAjustCube = true;
         //Debug.Log("test " + rotation.x + " " + rotation.y + " " + rotation.z + " ");
@@ -557,7 +535,6 @@ public class CubeDriver : MonoBehaviour
         {
             an = 0f;
         }
-
         return an;
     }
 
@@ -577,31 +554,61 @@ public class CubeDriver : MonoBehaviour
         // x/y
         SwipeAngle = Mathf.Atan(varticalAngle / horizontalAngle) * Mathf.Rad2Deg; // 角度を計算する
         //Debug.Log("test 角度は " + SwipeAngle + " 度です。");
-        tanXY = 40f;
-
+        tanXY = 45f;
         // 3本Tap後の状態を維持している場合は、まっすぐ回転させる
         if (isRotateAjustCube)
         {
-            if (Mathf.Abs(SwipeAngle) < tanXY)
+            // スタートで縦横どちらに回転するか決定する
+            if (isY == false && isX == false)
             {
-                // y軸回転
-                varticalAngle = 0f;
+                if (Mathf.Abs(SwipeAngle) < 45)
+                {
+                    // y軸回転
+                    //Debug.Log("test x");
+                    isY = true;
+                }
+                else if (Mathf.Abs(SwipeAngle) >= 45)
+                {
+                    // x軸回転
+                    //Debug.Log("test y");
+                    isX = true;
+                }
+                else
+                {
+                    isX = false;
+                    isY = false;
+                }
             }
-            else if (Mathf.Abs(SwipeAngle) > (90 - tanXY))
+            // 回転方向が容易に変更されないように60までに適用範囲を拡大する
+            if (isY == true)
             {
-                // x軸回転
-                horizontalAngle = 0f;
+                if (Mathf.Abs(SwipeAngle) < tanXY)
+                {
+                    // y軸回転
+                    varticalAngle = 0f;
+                }
+                else
+                {
+                    isY = false;
+                    isRotateAjustCube = false;
+                }
             }
-            else
+            else if (isX == true)
             {
-                isRotateAjustCube = false;
+                if (Mathf.Abs(SwipeAngle) > (90 - tanXY))
+                {
+                    // x軸回転
+                    horizontalAngle = 0f;
+                }
+                else
+                {
+                    isX = false;
+                    isRotateAjustCube = false;
+                }
             }
         }
-
         //Debug.Log("test " + SwipeAngle + " " + isRotateAjustCube + " " + varticalAngle + " " + horizontalAngle);
-
         _transform.rotation = Quaternion.AngleAxis(swipeVector * Time.deltaTime * screenCorrection, new Vector3(varticalAngle, horizontalAngle, 0f)) * _transform.rotation;
-
     }
     /// <summary>
     /// Cubeの回転を初期値に戻す <br/>
