@@ -1,15 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-//using TMPro;
-using UnityEngine;
-using UnityEngine.UI;
-//using UnityEngine.Pool;
-//using UnityEngine.InputSystem.Controls;
-//using Unity.VisualScripting;
-
-//using UnityEditor.EditorTools; ここが「ファイルが見つかりません」の原因では
-
 /********************************************************************
  * 最終更新：2023/04/07
  * メソッド：数字を生成、挿入、削除、表示
@@ -20,48 +8,42 @@ using UnityEngine.UI;
  * textHeadにCube内の子オブジェクト(Number)を表示
 *********************************************************************/
 
-// スクリプトの実行順序を設定した　2023/03/14　検証未済
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
 
-// 数字が反対向き　2023/03/15
-// 回転させる
-// 問題の数字は固定　配列から分岐
 // バイブを外す
 
 public class NumberDriver : MonoBehaviour
 {
     /// <summary>Cube + xyz</summary>
-    public static string cubeAdress;
+    public static string cubeAdress; //いらないのでは
     /// <summary>押されたボタン番号</summary>
     public static string buttonName;
     
-
     /// <summary>1~9の定数</summary>
-    private const int numberCount = 9;
+    private readonly int numberCount = 9;
     /// <summary>Add 9コ以上入らない定数</summary>
-    private const int makeNumberCount = 9;
-    //
-    private const int maxCubeNumber = 8;
-    GameObject _tradeCubeAdress = GameManager.tradeCubeAdress;
+    private readonly int makeNumberCount = 9;
+    /// <summary>１マスに入る最大値</summary>
+    private readonly int maxCubeNumber = 8;
+    // 選択されたキューブを受け取る
+    [HideInInspector] public GameObject _tradeCubeAdress;
     // numberPrefabの親
     [SerializeField] public GameObject PooledGameObject;
     // Number(1~9)のPrefabのリスト
     [SerializeField] public List<GameObject> numberPrefab;
     /// <summary>numberObjectを格納するList</summary>
     public static List<GameObject>[] listOfPooledObjects = new List<GameObject>[9];
-    
-    //List<GameObject> listOfPooledObject; //　コメントアウトしてみた → 不要かも　2023/03/18
 
-    // 画面上下のテキスト
-    ScreenManagaer txtMeshPro;
+    ScreenManagaer screenManagaer = new ScreenManagaer();
+    // List<GameObject> listOfPooledObject; //　コメントアウトしてみた → 不要かも　2023/03/18
+
 
     private void Awake()
     {
-        //Debug.Log("numberDriver");
-        // テキストを表示
-        txtMeshPro = FindObjectOfType<ScreenManagaer>();
-
-        txtMeshPro.textBottom.text = "NumberDriver test ";
-
         // (1~9)x9コを作成
         for (int i = 0; i < numberCount; i++)
         {
@@ -79,19 +61,24 @@ public class NumberDriver : MonoBehaviour
                 listOfPooledObjects[i].Add(numberObject);
             }
         }
+
     }
-    
+
+    private void Start()
+    {
+
+    }
+
     /// <summary>
     /// 選択された数字をキューブに入れる
     /// </summary>
     /// <param name="押されたボタン番号"></param>
     public void SetNumber(string buttonName)
     {
-        //Debug.Log("numberのテスト : " + tradeCubeAdress + ":");
-        if (_tradeCubeAdress != null)
+        if (CubeDriver.tradeCubeAdress != null)
         {
             // セルが選択されている場所を親オブジェクトにする
-            GameObject parentGameObject = _tradeCubeAdress;
+            GameObject parentGameObject = CubeDriver.tradeCubeAdress;
             // ParentObjectのTransformを取得する
             Transform parentTransform = parentGameObject.transform;
             // 数字変換できるかを判定する
@@ -104,17 +91,14 @@ public class NumberDriver : MonoBehaviour
                     // 同じ数字を弾く予定
 
                     // 出題キューブ以外 && 数字は8コまで入る
-                    if (_tradeCubeAdress.GetComponent<Renderer>().material.color != GameManager.QuestionColor && _tradeCubeAdress.transform.childCount <= maxCubeNumber)
+                    if (parentGameObject.GetComponent<Renderer>().material.color != GameManager.QuestionColor && parentTransform.childCount <= maxCubeNumber)
                     {
                         // 非表示NumberObjectを探す
                         GameObject activeNumberObject = this.GetPooledObject(num);
 
                         Transform NumberObjectObjTransform = activeNumberObject.transform;
-
                         // objTransformをParentObjectの子オブジェクトにする
-                        
                         NumberObjectObjTransform.SetParent(parentTransform);
-
                         // キューブの中央に表示
                         NumberObjectObjTransform.localPosition = Vector3.zero;
                         // 子オブジェクトの回転を親オブジェクトと同じにする
@@ -128,7 +112,6 @@ public class NumberDriver : MonoBehaviour
                     {
                         Handheld.Vibrate();
                         throw new Exception("Err");
-
                         return;
                     }
                 }
@@ -146,9 +129,28 @@ public class NumberDriver : MonoBehaviour
         }
         else
         {
+            //Debug.Log("err : _tradeCubeAdress != null");
             // キューブ選択がない状態 → あとからでも選択できるようにする
             Handheld.Vibrate();
         }
+    }
+
+    /// <summary>
+    /// リストから非アクティブな数字オブジェクトを探す <br/>
+    /// 数字プレファブの使い回し
+    /// </summary>
+    /// <returns>非アクティブな数字オブジェクトを返す</returns>
+    public GameObject GetPooledObject(int num)
+    {
+        for (int i = 0; i < makeNumberCount; i++)
+        {
+            if (listOfPooledObjects[num][i].activeInHierarchy == false)
+            {
+                return listOfPooledObjects[num][i];
+            }
+        }
+        Handheld.Vibrate();
+        return null;
     }
 
     /// <summary>
@@ -157,6 +159,8 @@ public class NumberDriver : MonoBehaviour
     public void DeleteNumber()
     {
         // 出題キューブを除外する
+        // null
+        _tradeCubeAdress = CubeDriver.tradeCubeAdress;
         if (_tradeCubeAdress.GetComponent<Renderer>().material.color != GameManager.QuestionColor)
         {
             int childCount = _tradeCubeAdress.transform.childCount;
@@ -198,29 +202,13 @@ public class NumberDriver : MonoBehaviour
     }
     
     /// <summary>
-    /// リストから非アクティブな数字オブジェクトを探す <br/>
-    /// 数字プレファブの使い回し
-    /// </summary>
-    /// <returns>非アクティブな数字オブジェクトを返す</returns>
-    public GameObject GetPooledObject(int num)
-    {
-        // listOfPooledObjects[num].Countから変更　2023/03/18
-        for (int i = 0; i < makeNumberCount; i++)
-        {
-            if (listOfPooledObjects[num][i].activeInHierarchy == false)
-            {
-                return listOfPooledObjects[num][i];
-            }
-        }
-        Handheld.Vibrate();
-        return null;
-    }
-    /// <summary>
     /// textHeadにCube内のNumberを表示
     /// </summary>
     /// <param name="parentGameObject"></param>
     public void GetNumberObjectName()
     {
+        // null
+        _tradeCubeAdress = CubeDriver.tradeCubeAdress;
         if (_tradeCubeAdress != null)
         {
             //Debug.Log("GetNumberObjectName" + tradeCubeAdress.name);
@@ -238,9 +226,9 @@ public class NumberDriver : MonoBehaviour
                     numStr += " " + numChar;
                 }
                 // テキストオブジェクトを探す
-                txtMeshPro = FindObjectOfType<ScreenManagaer>();
+                screenManagaer = FindObjectOfType<ScreenManagaer>();
                 // テキストを表示
-                txtMeshPro.textHead.text = _tradeCubeAdress.name + " " + numStr;
+                screenManagaer.textHead.text = _tradeCubeAdress.name + " " + numStr;
             }
         }
     }
