@@ -1,9 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using TMPro;
-using UnityEngine;
-
-
 /********************************************************************
  * 最終更新：2023/04/07
  * 機能：画面設定：いろいろなデバイスに対応させる
@@ -14,9 +8,14 @@ using UnityEngine;
  * 縦横変更 レイアウトも変更　 ← 画面は回転させない予定
 *********************************************************************/
 
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+
 public class ScreenManagaer : MonoBehaviour
 {
-    /**** 左下テキスト ****/
+    /**** テキスト ****/
     [SerializeField] public TextMeshProUGUI textHead;
     [SerializeField] public TextMeshProUGUI textBottom;
 
@@ -44,6 +43,9 @@ public class ScreenManagaer : MonoBehaviour
 
         // スマホ画面の幅を取得する(小さい方をテキストの幅にする)
         textWidth = screenHeight > screenWidth ? screenWidth : screenHeight;
+
+        // 画面の向きを縦に固定する
+        //Screen.orientation = ScreenOrientation.Portrait; // プロジェクト設定で画面回転を固定しているから不要
 
         /**** textHead ****/
         // テキストの幅をスマホ画面に合わせて変更する
