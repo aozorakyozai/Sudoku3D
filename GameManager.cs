@@ -1,10 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using Unity.VisualScripting;
-using UnityEngine;
-
 /********************************************************************
  * 最終更新：2023/04/07
  * 機能：Load,Save,clearなど
@@ -17,52 +10,57 @@ using UnityEngine;
  * Loadキューブの向き
 *********************************************************************/
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+using Unity.VisualScripting;
+using UnityEngine;
+
 public class GameManager : MonoBehaviour
 {
     // DBから取得するテーブル　とりあえず仮置　playfabに移動予定　2023/04/06
     public List<List<string>> dbQuestionList;
+
     /// <summary>[27] : 3x3x3 Cubeの定数</summary>
     public const int cubeCount = 27;
     /// <summary>出題の配列</summary>
     public string[] questionArray = new string[cubeCount];
     /// <summary>回答の配列</summary>
     public string[] answerArray = new string[cubeCount];
-    /// <summary>答え合わせの配列</summary>
-    public int[] checkAnswerArray = new int[cubeCount];
+    
     /// <summary>現在の出題</summary>
     public int[] puzzleQuestion;
+
     /// <summary>answerArrayに格納するための変数</summary>
     string puzzleQuestionNumbeToString;
     /// <summary>１文字を格納</summary>
     Char numChar;
-    /// <summary>数字オブジェクト名から数字を取得する場所(ex.num1Prefab)</summary>
-    const int numberPrefabToNumber = 3;
+    /// <summary>数字オブジェクト名から数字を取得する場所(ex.num1Prefab ← 3)</summary>
+    public const int numberPrefabToNumber = 3;
 
     // 読まない
     /// <summary>問題番号</summary>
-    int questionNo = 8;
+    public int questionNo = 8;
     /// <summary>回答中を文字列で保存</summary>
-    string answerArrayToString;
+    public string answerArrayToString;
 
     // 画面上下のテキスト
-    ScreenManagaer txtMeshPro;
+    ScreenManagaer screenManagaer;
 
     NumberDriver numberDriver = new NumberDriver();
 
     /// <summary>選択されたキューブ</summary>
-    public static GameObject tradeCubeAdress;
-
+    [HideInInspector] public GameObject _tradeCubeAdress;
     // cubeAdressから配列を作成し、Findメソッドを回避する
-    public GameObject[] cubeGameObjects = new GameObject[cubeCount];
-
-    //CubeDriver cubeDriver = new CubeDriver();
-
-    //ScoreManager scoreManager = new ScoreManager();
+    public static GameObject[] cubeGameObjects = new GameObject[cubeCount];
 
     /// <summary>Cubeのアドレス(Cube123)</summary>
     string cubeNumber;
     /// <summary>キューブに入れる出題用の数字</summary>
     int puzzleQuestionNumber;
+    /// <summary>回答用の数字を格納</summary>
+    string numString;
     /// <summary>キューブに入れる回答の数字</summary>
     int puzzleAnswerNumber;
     // cubeのフレームのマテリアルを指定するための変数
@@ -81,6 +79,7 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
+        //Debug.Log(tradeCubeAdress.name);
         // キューブ配列の作成 Find回避
         SetCubeAdress();
 
@@ -94,15 +93,15 @@ public class GameManager : MonoBehaviour
 
         // DBにあるリストから出題する問題を取得
         dbQuestionList = new List<List<string>>{new List<string> { "0", "0", "3", "8", "5", "0", "0", "0", "0", "4", "0", "0", "0", "0", "9", "7", "6", "0", "0", "0", "1", "2", "0", "0", "0", "4", "8" } };
-
+        //List<string> dbQuestionList2 = new List<string> { "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0" }
         // リストから出題を引き出す
         // 現在はリストは[0]一つのみ出題があるから　2023/04/07
         questionArray = dbQuestionList[0].ToArray();
 
         //テキストを表示
-        txtMeshPro = FindObjectOfType<ScreenManagaer>();
+        screenManagaer = FindObjectOfType<ScreenManagaer>();
 
-        txtMeshPro.textBottom.text = "GameManager test";
+        screenManagaer.textBottom.text = "GameManager test";
     }
 
     private void Start()
@@ -134,7 +133,7 @@ public class GameManager : MonoBehaviour
     // 問題点：キューブにマテリアルが反映されず、個別に指定した場合は、色が少し違う　2023/04/11
 
     /// <summary>
-    /// キューブナンバーから配列を作成する
+    /// キューブナンバーからオブジェクトの配列を作成する
     /// </summary>
     public void SetCubeAdress()
     {
@@ -159,11 +158,18 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void ClearCube()
     {
-        for (int i = 0; i < cubeGameObjects.Length; i++)
-        {
 
+        foreach (var item in cubeGameObjects)
+        {
+            // 2023/04/16　foreachに変更
             // MaterialIndex(1：セルキューブのガラス面のマテリアルインデックス)
-            Transform cubeNumberTransform = cubeGameObjects[i].transform;
+            Transform cubeNumberTransform = item.transform;
+        //}
+        //for (int i = 0; i < cubeGameObjects.Length; i++)
+        //{
+
+        //    // MaterialIndex(1：セルキューブのガラス面のマテリアルインデックス)
+        //    Transform cubeNumberTransform = cubeGameObjects[i].transform;
 
             // **** フレームとガラスのマテリアル ****
             Material material_0 = cubeNumberTransform.GetComponent<Renderer>().materials[0];
@@ -179,33 +185,34 @@ public class GameManager : MonoBehaviour
             material_1.SetFloat("_Smoothness", 1.0f);
 
             // **** 子オブジェクトを外す ****
-
-
-            //問題 → 1つおきに削除される
-
-
             int childCount = cubeNumberTransform.childCount;
-            Debug.Log(childCount);
+            //Debug.Log("childCount= " + childCount);
             if (childCount > 0)
             {
                 // 親オブジェクトから子オブジェクトを取得する
                 for (int l = 0; l < childCount; l++)
                 {
+                    Debug.Log("l = " + l);
                     try
                     {
-                        Transform childTransform = cubeNumberTransform.GetChild(l);
+                        // オブジェクト配列を降順で検索する
+                        Transform childTransform = cubeNumberTransform.GetChild(childCount - 1 - l);
                         // 子オブジェクトからGameObjectを求める
                         GameObject childGameObject = childTransform.gameObject;
+                        
                         // 親オブジェクトを変更する
                         // NumberDriverからもらってくる予定　2023/04/11
                         GameObject PooledGameObject = GameObject.Find("PooledGameObject");
                         // 子オブジェクトを親オブジェクトの中に入れる
-                        childTransform.parent = PooledGameObject?.transform;
+                        childTransform.parent = PooledGameObject.transform;
                         // 非アクティブ化
                         childGameObject.SetActive(false);
+
+                        //Debug.Log("childGameObject.name = " + childGameObject.name);
                     }
                     catch
                     {
+                        //Debug.Log(l + " : " + childGameObject.name);
                         //continue;
                     }
                 }
@@ -229,11 +236,11 @@ public class GameManager : MonoBehaviour
         }
         
         int l = 0;
-        for (int i = 1; i < cubeGameObjects.Length; i++)
+        for (int i = 0; i < cubeGameObjects.Length; i++)
         {
             // MaterialIndex(1：セルキューブのガラス面のマテリアルインデックス)
             Transform cubeNumberTransform = cubeGameObjects[i].transform;
-
+            //Debug.Log(i + "cubeGameObjects[i]= " + cubeGameObjects[i]);
             Material material_0 = cubeNumberTransform.GetComponent<Renderer>().materials[0];
             Material material_1 = cubeNumberTransform.GetComponent<Renderer>().materials[1];
 
@@ -292,11 +299,18 @@ public class GameManager : MonoBehaviour
         string[] puzzleQuestion = answerArray;
 
         int l = 0;
-        for (int i = 1; i < cubeGameObjects.Length; i++)
-        {
 
+        foreach (var item in cubeGameObjects)
+        {
+            // 2023/04/16　foreach に変更
             // 全検索
-            Transform cubeNumberTransform = cubeGameObjects[i].transform;
+            Transform cubeNumberTransform = item.transform;
+        //}
+        //for (int i = 0; i < cubeGameObjects.Length; i++)
+        //{
+        //    // 全検索
+        //    Transform cubeNumberTransform = cubeGameObjects[i].transform;
+            //Debug.Log(i + " cubeGameObjects[i]= " + cubeGameObjects[i].name);
 
             // キューブ内の子オブジェクト情報の文字列を作る
             if (cubeNumberTransform.childCount == 0)
@@ -343,13 +357,25 @@ public class GameManager : MonoBehaviour
     {
         int j = 0;
         int k = 0;
-        for (int i = 1; i < cubeGameObjects.Length; i++)
+        foreach (var item in cubeGameObjects)
         {
             // MaterialIndex(1：セルキューブのガラス面のマテリアルインデックス)
-            Transform cubeNumberTransform = cubeGameObjects[i].transform;
+            Transform cubeNumberTransform = item.transform;
+
+            // 2023/04/16　foreachに変更
+        //}
+
+        //for (int i = 0; i < cubeGameObjects.Length; i++)
+        //{
+        //    // MaterialIndex(1：セルキューブのガラス面のマテリアルインデックス)
+        //    Transform cubeNumberTransform = cubeGameObjects[i].transform;
+
             // ２つの配列を同時に検索する
             puzzleQuestionNumber = puzzleQuestion[j++];
-            string numString = ImportPuzzleAnswer().ansArray[k++];
+
+
+            // エラー
+            numString = ImportPuzzleAnswer().ansArray[k++];
             // 要素の長さ
             int numLength = numString.Length;
 
@@ -445,7 +471,7 @@ public class GameManager : MonoBehaviour
         // PlayerPrefsからインポート
         string savedRotationString = PlayerPrefs.GetString("savedRotation");
 
-        Debug.Log(savedRotationString);
+        //Debug.Log(savedRotationString);
 
         if (!string.IsNullOrEmpty(savedRotationString))
         {
@@ -459,7 +485,7 @@ public class GameManager : MonoBehaviour
                 }
                 else
                 {
-                    return;
+                    return; 
                 }
             }
         }
